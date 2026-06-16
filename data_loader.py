@@ -9,6 +9,8 @@ def load_vfv(start_date="2012-01-01", end_date="2025-12-31", save_csv=True):
     """
     # Download
     df = yf.download("VFV.TO", start=start_date, end=end_date)
+    if df is None or df.empty:
+        raise RuntimeError("yfinance returned no data for VFV.TO")
 
     # Fix yfinance 1.2.0 MultiIndex columns
     df.columns = df.columns.get_level_values(0)
