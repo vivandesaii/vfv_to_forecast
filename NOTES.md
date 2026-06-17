@@ -10,4 +10,4 @@
 - ARIMA won first test on 48 months of data, direction: up.
 
 ## Next
-- Allocation lookup table, create src/strategy.pygi 
+- Allocation lookup table, create src/strategy.py

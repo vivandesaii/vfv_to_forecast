@@ -21,9 +21,14 @@ def forecast_arima(series):
     Fit ARIMA(1,1,0) on series and forecast one step ahead.
     Returns predicted next month return as float.
     """
+
+    # Order (1,1,0) is a simple ARIMA that often works decently on financial returns.
     model = ARIMA(series, order=(1, 1, 0))
     result = model.fit()
+    # Forecast one step ahead (next month)
     forecast = result.forecast(steps=1)
+    # Return the predicted return as a float
+    # iloc[0] gets the first (and only) value from the forecast Series
     return float(forecast.iloc[0])
 
 def forecast_ets(series):
@@ -31,6 +36,8 @@ def forecast_ets(series):
     Fit Exponential Smoothing on series and forecast one step ahead.
     Returns predicted next month return as float.
     """
+
+    # Parameters: additive trend, no seasonality, estimated initialization
     model = ExponentialSmoothing(
         series,
         trend="add",
@@ -38,7 +45,9 @@ def forecast_ets(series):
         initialization_method="estimated"
     )
     result = model.fit()
+    # Forecast one step ahead (next month)
     forecast = result.forecast(steps=1)
+    # Return the predicted return as a float
     return float(forecast.iloc[0])
 
 def forecast_prophet(series):
@@ -46,10 +55,14 @@ def forecast_prophet(series):
     Fit Facebook Prophet on series and forecast one step ahead.
     Returns predicted next month return as float.
     """
+
+    # Prophet expects a DataFrame with 'ds' and 'y' columns
     df_prophet = pd.DataFrame({
         "ds": series.index,
         "y": series.values
     })
+
+    # Parameters: tuned changepoint_prior_scale to 0.05 to avoid overfitting to crash spikes
     model = Prophet(
         changepoint_prior_scale=0.05,  # tuned: avoid overfitting to crash spikes
         yearly_seasonality=False,  # type: ignore[reportArgumentType]
@@ -59,9 +72,11 @@ def forecast_prophet(series):
     )
     model.fit(df_prophet)
 
-    # Predict one month ahead
+    # Predict one month ahead (Prophet needs a future DataFrame with 'ds' column)
     future = model.make_future_dataframe(periods=1, freq="ME")
+    # Forecast returns the full future DataFrame with predictions; we take the last row's 'yhat' as the next month prediction
     forecast = model.predict(future)
+    # Return the predicted return as a float
     return float(forecast["yhat"].iloc[-1])
 
 def compute_rmse(actual, predicted):
@@ -80,13 +95,20 @@ def run_model_competition(series, validation_window=3):
     Winner = lowest total RMSE across validation window.
     Returns: (winner_name, predicted_direction, rmse_dict)
     """
+    # If series is too short for validation, default to ARIMA prediction on full series
     if len(series) < validation_window + 6:
         # Not enough data — default to ARIMA
         pred = forecast_arima(series)
         return "ARIMA", "up" if pred > 0 else "down", {}
 
+    # Rolling validation
+    # We will predict the last `validation_window` months one by one, each time training on all data before that month.
     actuals = []
     arima_preds, ets_preds, prophet_preds = [], [], []
+
+    # Loop over the last `validation_window` months in reverse order (most recent month first)
+    # Train on all data before the month we are trying to predict then predict that month, then slide ahead one month and repeat until we've predicted the last `validation_window` months
+    # Sliding window: if validation_window=3, we predict months -3, -2, -1 in that order. For month -3, we train on all data before month -3. For month -2, we train on all data before month -2 (which includes month -3's actual value), etc.
 
     for i in range(validation_window, 0, -1):
         train = series.iloc[:-i]
