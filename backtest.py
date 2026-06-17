@@ -119,15 +119,25 @@ def run_backtest(
             print(f"Skipping {month.date()} — insufficient data")
             continue
 
-        # REGIME DETECTION 
+        # REGIME DETECTION
         try:
-            model, states = train_hmm(daily_data)
-            calm_state = identify_calm_state(model, states)
+            model, states, state_probs, daily_data_enhanced = train_hmm(daily_data)
+            calm_state, middle_state, volatile_state = identify_calm_state(
+                model, states, daily_data_enhanced
+            )
             current_state = states[-1]
-            regime = "calm" if current_state == calm_state else "volatile"
+            confidence = float(state_probs[-1][current_state])
+
+            if current_state == calm_state:
+                regime = "calm"
+            elif current_state == volatile_state:
+                regime = "volatile"
+            else:
+                regime = "choppy"
         except Exception as e:
             print(f"HMM failed for {month.date()}: {e}")
-            regime = "calm"  # default to calm on failure
+            regime = "choppy"
+            confidence = 1.0
 
         # FORECASTING 
         try:
@@ -138,7 +148,7 @@ def run_backtest(
             winner = "ARIMA"
 
         # ALLOCATION 
-        amount = get_investment_amount(regime, direction, base=base_sip)
+        amount = get_investment_amount(regime, direction, confidence=confidence, base=base_sip)
         multiplier = amount / base_sip
 
         # INVEST 

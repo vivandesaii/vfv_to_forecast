@@ -1,60 +1,67 @@
-def get_multipler(regime, direction):
+def get_multiplier(regime, direction, confidence=1.0):
     """
-    Return SIP investment multiplier based on market regime and
-    forecasted return direction.
+    Return SIP multiplier for 3-state regime + direction + confidence.
+
+    Regimes:
+        calm     = low vol, bull market conditions
+        choppy   = elevated vol, unclear direction
+        volatile = high vol, stress conditions
+
+    Confidence scales multiplier toward neutral (1.0x) when uncertain.
 
     Parameters:
-        regime    : str — "calm" or "volatile"
-        direction : str — "up" or "down"
+        regime     : str   — "calm", "choppy", or "volatile"
+        direction  : str   — "up" or "down"
+        confidence : float — HMM probability of current regime (0.5–1.0)
 
     Returns:
         float — multiplier to apply to base SIP amount
     """
-
-    table = {
-        ("calm", "up"): 1.5,   # Invest more in calm up months
-        ("calm", "down"): 0.75, # Invest less in calm down months
-        ("volatile", "up"): 1.0, # Invest normal amount in volatile up
-        ("volatile", "down"): 0.5 # Invest much less in volatile down
-    }
+    base_table = {
+    ("calm",     "up"):   1.20,  # modest aggression in good times
+    ("calm",     "down"): 0.90,  # slight caution
+    ("choppy",   "up"):   1.10,  # lean in slightly
+    ("choppy",   "down"): 1.00,  # neutral
+    ("volatile", "up"):   1.30,  # buy the dip — market recovering
+    ("volatile", "down"): 1.10,  # buy the dip — accumulate cheap units
+}
 
     key = (regime.lower(), direction.lower())
+    if key not in base_table:
+        raise ValueError(f"Invalid input: regime='{regime}', direction='{direction}'")
 
-    if key not in table:
-        raise ValueError(f"Invalid regime/direction combination: {key}")
-    
-    return table[key]
+    base    = base_table[key]
+    neutral = 1.0
+    scaled  = neutral + (base - neutral) * confidence
 
-def get_investment_amount(regime, direction, base=500):
+    return round(scaled, 4)
+
+
+def get_investment_amount(regime, direction, confidence=1.0, base=500):
     """
     Return dollar amount to invest this month.
 
     Parameters:
-        regime    : str — "calm" or "volatile"
-        direction : str — "up" or "down"
-        base      : float — base monthly SIP amount (default $500)
+        regime     : str   — "calm", "choppy", or "volatile"
+        direction  : str   — "up" or "down"
+        confidence : float — HMM probability of current regime
+        base       : float — base monthly SIP amount (default $500)
 
     Returns:
         float — dollar amount to invest
     """
+    multiplier = get_multiplier(regime, direction, confidence)
+    return round(base * multiplier, 2)
 
-    multiplier = get_multipler(regime, direction)
-    return base * multiplier
 
 if __name__ == "__main__":
+    print(f"{'Regime':<10} {'Forecast':<8} {'Conf':<8} {'Multiplier':<12} {'Amount'}")
+    print("-" * 50)
 
-    cases = [
-        ("calm", "up"),
-        ("calm", "down"),
-        ("volatile", "up"),
-        ("volatile", "down"),
-    ]
-
-    # Test all combinations of regime and direction
-    print(f"{'Regime':<10} {'Forecast':<8} {'Multiplier':<12} {'Amount'}")
-    print("-" * 40) # Separator line
-
-    for regime, direction in cases:
-        mult = get_multipler(regime, direction)
-        amount = get_investment_amount(regime, direction)
-        print(f"{regime:<10} {direction:<8} {mult:<12} ${amount}")
+    for regime in ["calm", "choppy", "volatile"]:
+        for direction in ["up", "down"]:
+            for conf in [1.0, 0.75]:
+                mult   = get_multiplier(regime, direction, conf)
+                amount = get_investment_amount(regime, direction, conf)
+                print(f"{regime:<10} {direction:<8} {conf:<8} {mult:<12} ${amount}")
+        print()
