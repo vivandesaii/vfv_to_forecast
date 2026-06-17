@@ -20,9 +20,9 @@ def load_data(file_path="data/vfv_processed.csv"):
 def add_features(df):
     """
     Enhanced features for HMM:
-    - rolling_vol:    21d realized volatility
-    - vol_ratio:      21d vol / 63d vol (recent vs longer term)
-    - vix:            implied volatility (market fear gauge)
+    - garch_vol:  GARCH(1,1) conditional volatility (replaces rolling_vol)
+    - vol_ratio:  21d rolling vol / 63d rolling vol (relative vol context)
+    - vix:        implied volatility (market fear gauge)
     All features scaled to zero mean / unit variance.
     """
     df = df.copy()
@@ -32,9 +32,8 @@ def add_features(df):
 
     df.dropna(inplace=True)
 
-    # Scale all features
     scaler = StandardScaler()
-    feature_cols = ["daily_return", "rolling_vol", "vol_ratio", "vix"]
+    feature_cols = ["daily_return", "garch_vol", "vol_ratio", "vix"]
     df[feature_cols] = scaler.fit_transform(df[feature_cols])
 
     return df
@@ -52,7 +51,7 @@ def train_hmm(df, n_states=3, random_state=42):
         df_enhanced  : DataFrame with added/scaled features
     """
     df_enhanced = add_features(df)
-    features = df_enhanced[["daily_return", "rolling_vol", "vol_ratio", "vix"]].values
+    features = df_enhanced[["daily_return", "garch_vol", "vol_ratio", "vix"]].values
 
     model = GaussianHMM(
         n_components=n_states,
