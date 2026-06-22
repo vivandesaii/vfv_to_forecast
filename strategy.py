@@ -18,12 +18,12 @@ def get_multiplier(regime, direction, confidence=1.0):
         float — multiplier to apply to base SIP amount
     """
     base_table = {
-    ("calm",     "up"):   1.20,  # modest aggression in good times
-    ("calm",     "down"): 0.90,  # slight caution
-    ("choppy",   "up"):   1.10,  # lean in slightly
-    ("choppy",   "down"): 1.00,  # neutral
-    ("volatile", "up"):   1.30,  # buy the dip — market recovering
-    ("volatile", "down"): 1.10,  # buy the dip — accumulate cheap units
+    ("calm",     "up"):   1.25,
+    ("calm",     "down"): 0.875,
+    ("choppy",   "up"):   0.95,
+    ("choppy",   "down"): 1.00,
+    ("volatile", "up"):   1.00,
+    ("volatile", "down"): 1.30,
 }
 
     key = (regime.lower(), direction.lower())
